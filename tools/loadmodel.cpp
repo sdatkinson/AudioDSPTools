@@ -1,3 +1,11 @@
+/*
+ * File: loadmodel.cpp
+ * Created Date: Wednesday August 16th 2023
+ * Author: Steven Atkinson (steven@atkinson.mn)
+ */
+
+// Test loading a model
+
 #include <stdlib.h>
 #include "NAM/dsp.h"
 

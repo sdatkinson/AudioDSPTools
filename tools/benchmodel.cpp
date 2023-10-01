@@ -1,3 +1,13 @@
+/*
+ * File: benchmodel.cpp
+ * Created Date: Wednesday August 16th 2023
+ * Author: Steven Atkinson (steven@atkinson.mn)
+ */
+
+// Test to benchmark model loading and running
+
+
+
 #include "malloc.h"
 #include <iostream>
 #include <chrono>
