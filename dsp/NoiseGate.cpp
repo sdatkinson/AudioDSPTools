@@ -5,6 +5,7 @@
 //  Created by Steven Atkinson on 2/5/23.
 //
 
+#include <algorithm>  // std::clamp
 #include <cstring> // memcpy
 #include <cmath> // pow
 #include <sstream>
