@@ -1,3 +1,9 @@
+/*
+ * File: dsp.cpp
+ * Created Date: March 17, 2023
+ * Author: Steven Atkinson (steven@atkinson.mn)
+ */
+
 #include <algorithm> // std::max_element
 #include <algorithm>
 #include <cmath> // pow, tanh, expf
@@ -8,9 +14,6 @@
 #include <unordered_set>
 
 #include "dsp.h"
-
-// ============================================================================
-// Implementation of Version 2 interface
 
 dsp::DSP::DSP()
 : mOutputPointers(nullptr)

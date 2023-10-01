@@ -1,4 +1,4 @@
-file(GLOB_RECURSE NAM_SOURCES ../NAM/*.cpp ../NAM/*.c ../NAM*.h)
+file(GLOB_RECURSE AUDIO_DSP_TOOLS_SOURCES ../dsp/*.cpp ../dsp*.h)
 
 set(TOOLS benchmodel)
 
@@ -9,10 +9,10 @@ include_directories(tools ..)
 include_directories(tools ${NAM_DEPS_PATH}/eigen)
 include_directories(tools ${NAM_DEPS_PATH}/nlohmann)
 
-add_executable(loadmodel loadmodel.cpp ${NAM_SOURCES})
-add_executable(benchmodel benchmodel.cpp ${NAM_SOURCES})
+add_executable(loadmodel loadmodel.cpp ${AUDIO_DSP_TOOLS_SOURCES})
+add_executable(benchmodel benchmodel.cpp ${AUDIO_DSP_TOOLS_SOURCES})
 
-source_group(NAM ${CMAKE_CURRENT_SOURCE_DIR} FILES ${NAM_SOURCES})
+source_group(NAM ${CMAKE_CURRENT_SOURCE_DIR} FILES ${AUDIO_DSP_TOOLS_SOURCES})
 
 target_compile_features(${TOOLS} PUBLIC cxx_std_17)
 
