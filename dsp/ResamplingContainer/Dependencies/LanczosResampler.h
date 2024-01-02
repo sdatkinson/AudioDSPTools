@@ -1,4 +1,4 @@
-// File: _LanczosResampler.h
+// File: LanczosResampler.h
 // Created Date: Saturday December 16th 2023
 // Author: Steven Atkinson (steven@atkinson.mn)
 
