@@ -9,7 +9,7 @@
 // -------------------------------------------------------------------------------------
 
 /*
-iPlug 2 C++ Plug-in Framework. 
+iPlug 2 C++ Plug-in Framework.
 
 Copyright (C) the iPlug 2 Developers. Portions copyright other contributors, see each source file for more information.
 
@@ -17,19 +17,24 @@ Based on WDL-OL/iPlug by Oli Larkin (2011-2018), and the original iPlug v1 (2008
 
 LICENSE:
 
-This software is provided 'as-is', without any express or implied warranty.  In no event will the authors be held liable for any damages arising from the use of this software.
+This software is provided 'as-is', without any express or implied warranty.  In no event will the authors be held liable
+for any damages arising from the use of this software.
 
-Permission is granted to anyone to use this software for any purpose, including commercial applications, and to alter it and redistribute it freely, subject to the following restrictions:
+Permission is granted to anyone to use this software for any purpose, including commercial applications, and to alter it
+and redistribute it freely, subject to the following restrictions:
 
-1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
-1. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If
+you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not
+required.
+1. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original
+software.
 1. This notice may not be removed or altered from any source distribution.
 
 iPlug 2 includes the following 3rd party libraries (see each license info):
 
 * Cockos WDL https://www.cockos.com/wdl
 * NanoVG https://github.com/memononen/nanovg
-* NanoSVG https://github.com/memononen/nanosvg  
+* NanoSVG https://github.com/memononen/nanosvg
 * MetalNanoVG https://github.com/ollix/MetalNanoVG
 * RTAudio https://www.music.mcgill.ca/~gary/rtaudio
 * RTMidi https://www.music.mcgill.ca/~gary/rtmidi
@@ -39,9 +44,9 @@ iPlug 2 includes the following 3rd party libraries (see each license info):
 /*
  This code is derived from
  https://github.com/surge-synthesizer/sst-basic-blocks/blob/main/include/sst/basic-blocks/dsp/LanczosResampler.h
- 
+
  The following license info is copied from the above file:
- 
+
  * sst-basic-blocks - an open source library of core audio utilities
  * built by Surge Synth Team.
  *
@@ -112,11 +117,11 @@ namespace dsp
  *
  * @tparam T the sampletype
  * @tparam NCHANS the number of channels
- * @tparam A The Lanczos filter size. A higher value makes the filter closer to an 
-   ideal stop-band that rejects high-frequency content (anti-aliasing), 
+ * @tparam A The Lanczos filter size. A higher value makes the filter closer to an
+   ideal stop-band that rejects high-frequency content (anti-aliasing),
    but at the expense of higher latency
  */
-template<typename T = double, int NCHANS=2, size_t A=12>
+template <typename T = double, int NCHANS = 2, size_t A = 12>
 class LanczosResampler
 {
 private:
@@ -136,46 +141,46 @@ private:
 
 public:
   /** Constructor
-    * @param inputRate The input sample rate
-    * @param outputRate The output sample rate
-    */
+   * @param inputRate The input sample rate
+   * @param outputRate The output sample rate
+   */
   LanczosResampler(float inputRate, float outputRate)
   : mInputSampleRate(inputRate)
   , mOutputSamplerate(outputRate)
   , mPhaseOutIncr(mInputSampleRate / mOutputSamplerate)
   {
     ClearBuffer();
-    
+
     auto kernel = [](double x) {
       if (std::fabs(x) < 1e-7)
         return T(1.0);
-      
+
       const auto pi = iplug::PI;
       return T(A * std::sin(pi * x) * std::sin(pi * x / A) / (pi * pi * x * x));
     };
-    
+
     if (!sTablesInitialized)
     {
       for (auto t = 0; t < kTablePoints + 1; ++t)
       {
         const double x0 = kDeltaX * t;
-        
-        for (auto i=0; i<kFilterWidth; ++i)
+
+        for (auto i = 0; i < kFilterWidth; ++i)
         {
           const double x = x0 + i - A;
           sTable[t][i] = kernel(x);
         }
       }
-      
-      for (auto t=0; t<kTablePoints; ++t)
+
+      for (auto t = 0; t < kTablePoints; ++t)
       {
-        for (auto i=0; i<kFilterWidth; ++i)
+        for (auto i = 0; i < kFilterWidth; ++i)
         {
           sDeltaTable[t][i] = sTable[t + 1][i] - sTable[t][i];
         }
       }
-      
-      for (auto i=0; i<kFilterWidth; ++i)
+
+      for (auto i = 0; i < kFilterWidth; ++i)
       {
         // Wrap at the end - delta is the same
         sDeltaTable[kTablePoints][i] = sDeltaTable[0][i];
@@ -183,7 +188,7 @@ public:
       sTablesInitialized = true;
     }
   }
-  
+
   inline size_t GetNumSamplesRequiredFor(size_t nOutputSamples) const
   {
     /*
@@ -193,25 +198,25 @@ public:
      * res > (A+1) - (mPhaseIn - mPhaseOut + mPhaseOutIncr * desiredOutputs) * sri
      */
     auto res = A + 1.0 - (mPhaseIn - mPhaseOut - mPhaseOutIncr * nOutputSamples);
-    
+
     return static_cast<size_t>(std::max(res + 1.0, 0.0));
   }
-  
+
   inline void PushBlock(T** inputs, size_t nFrames)
   {
-    for (auto s=0; s<nFrames; s++)
+    for (auto s = 0; s < nFrames; s++)
     {
-      for (auto c=0; c<NCHANS; c++)
+      for (auto c = 0; c < NCHANS; c++)
       {
         mInputBuffer[c][mWritePos] = inputs[c][s];
         mInputBuffer[c][mWritePos + kBufferSize] = inputs[c][s]; // this way we can always wrap
       }
-      
+
       mWritePos = (mWritePos + 1) & (kBufferSize - 1);
       mPhaseIn += mPhaseInIncr;
     }
   }
-  
+
   size_t PopBlock(T** outputs, size_t max)
   {
     int populated = 0;
@@ -223,23 +228,17 @@ public:
     }
     return populated;
   }
-  
+
   inline void RenormalizePhases()
   {
     mPhaseIn -= mPhaseOut;
     mPhaseOut = 0;
   }
 
-  void Reset()
-  {
-    ClearBuffer();
-  }
-  
-  void ClearBuffer()
-  {
-    memset(mInputBuffer, 0, NCHANS * kBufferSize * 2 * sizeof(T));
-  }
-  
+  void Reset() { ClearBuffer(); }
+
+  void ClearBuffer() { memset(mInputBuffer, 0, NCHANS * kBufferSize * 2 * sizeof(T)); }
+
 private:
 #ifdef IPLUG_SIMDE
   inline void ReadSamples(double xBack, T** outputs, int s) const
@@ -247,19 +246,20 @@ private:
     float bufferReadPosition = static_cast<float>(mWritePos - xBack);
     int bufferReadIndex = static_cast<int>(std::floor(bufferReadPosition));
     float bufferFracPosition = 1.0f - (bufferReadPosition - static_cast<float>(bufferReadIndex));
-    
+
     bufferReadIndex = (bufferReadIndex + kBufferSize) & (kBufferSize - 1);
     bufferReadIndex += (bufferReadIndex <= static_cast<int>(A)) * kBufferSize;
-    
+
     float tablePosition = bufferFracPosition * kTablePoints;
     int tableIndex = static_cast<int>(tablePosition);
     float tableFracPosition = (tablePosition - tableIndex);
-    
+
     __m128 sum[NCHANS];
-    for (auto & v : sum) {
+    for (auto& v : sum)
+    {
       v = _mm_setzero_ps(); // Initialize sum vectors to zero
     }
-    
+
     for (int i = 0; i < A; i += 4) // Process four samples at a time
     {
       // Load filter coefficients and input samples into SSE registers
@@ -267,31 +267,28 @@ private:
       __m128 df0 = _mm_load_ps(&sDeltaTable[tableIndex][i]);
       __m128 f1 = _mm_load_ps(&sTable[tableIndex][A + i]);
       __m128 df1 = _mm_load_ps(&sDeltaTable[tableIndex][A + i]);
-      
+
       // Interpolate filter coefficients
       __m128 tfp = _mm_set1_ps(tableFracPosition);
       f0 = _mm_add_ps(f0, _mm_mul_ps(df0, tfp));
       f1 = _mm_add_ps(f1, _mm_mul_ps(df1, tfp));
-      
+
       for (int c = 0; c < NCHANS; c++)
       {
         // Load input data
-        __m128 d0 = _mm_set_ps(mInputBuffer[c][bufferReadIndex - A + i + 3],
-                               mInputBuffer[c][bufferReadIndex - A + i + 2],
-                               mInputBuffer[c][bufferReadIndex - A + i + 1],
-                               mInputBuffer[c][bufferReadIndex - A + i]);
-        __m128 d1 = _mm_set_ps(mInputBuffer[c][bufferReadIndex + i + 3],
-                               mInputBuffer[c][bufferReadIndex + i + 2],
-                               mInputBuffer[c][bufferReadIndex + i + 1],
-                               mInputBuffer[c][bufferReadIndex + i]);
-        
+        __m128 d0 =
+          _mm_set_ps(mInputBuffer[c][bufferReadIndex - A + i + 3], mInputBuffer[c][bufferReadIndex - A + i + 2],
+                     mInputBuffer[c][bufferReadIndex - A + i + 1], mInputBuffer[c][bufferReadIndex - A + i]);
+        __m128 d1 = _mm_set_ps(mInputBuffer[c][bufferReadIndex + i + 3], mInputBuffer[c][bufferReadIndex + i + 2],
+                               mInputBuffer[c][bufferReadIndex + i + 1], mInputBuffer[c][bufferReadIndex + i]);
+
         // Perform multiplication and accumulate
         __m128 result0 = _mm_mul_ps(f0, d0);
         __m128 result1 = _mm_mul_ps(f1, d1);
         sum[c] = _mm_add_ps(sum[c], _mm_add_ps(result0, result1));
       }
     }
-    
+
     // Extract the final sums and store them in the output
     for (int c = 0; c < NCHANS; c++)
     {
@@ -316,17 +313,17 @@ private:
 
     T sum[NCHANS] = {0.0};
 
-    for (auto i=0; i<A; i++)
+    for (auto i = 0; i < A; i++)
     {
       auto f0 = sTable[tableIndex][i];
       const auto df0 = sDeltaTable[tableIndex][i];
       f0 += df0 * tableFracPosition;
 
-      auto f1 = sTable[tableIndex][A+i];
-      const auto df1 = sDeltaTable[tableIndex][A+i];
+      auto f1 = sTable[tableIndex][A + i];
+      const auto df1 = sDeltaTable[tableIndex][A + i];
       f1 += df1 * tableFracPosition;
 
-      for (auto c=0; c<NCHANS;c++)
+      for (auto c = 0; c < NCHANS; c++)
       {
         const auto d0 = mInputBuffer[c][bufferReadIndex - A + i];
         const auto d1 = mInputBuffer[c][bufferReadIndex + i];
@@ -335,17 +332,17 @@ private:
       }
     }
 
-    for (auto c=0; c<NCHANS;c++)
+    for (auto c = 0; c < NCHANS; c++)
     {
       outputs[c][s] = sum[c];
     }
   }
 #endif
-  
+
   static T sTable alignas(16)[kTablePoints + 1][kFilterWidth];
   static T sDeltaTable alignas(16)[kTablePoints + 1][kFilterWidth];
   static bool sTablesInitialized;
-  
+
   T mInputBuffer[NCHANS][kBufferSize * 2];
   int mWritePos = 0;
   const float mInputSampleRate;
@@ -356,14 +353,15 @@ private:
   double mPhaseOutIncr = 0.0;
 };
 
-template<typename T, int NCHANS, size_t A>
-T LanczosResampler<T, NCHANS, A>::sTable alignas(16) [LanczosResampler<T, NCHANS, A>::kTablePoints + 1][LanczosResampler::kFilterWidth];
+template <typename T, int NCHANS, size_t A>
+T LanczosResampler<T, NCHANS, A>::sTable alignas(
+  16)[LanczosResampler<T, NCHANS, A>::kTablePoints + 1][LanczosResampler::kFilterWidth];
 
-template<typename T, int NCHANS, size_t A>
-T LanczosResampler<T, NCHANS, A>::sDeltaTable alignas(16) [LanczosResampler<T, NCHANS, A>::kTablePoints + 1][LanczosResampler::kFilterWidth];
+template <typename T, int NCHANS, size_t A>
+T LanczosResampler<T, NCHANS, A>::sDeltaTable alignas(
+  16)[LanczosResampler<T, NCHANS, A>::kTablePoints + 1][LanczosResampler::kFilterWidth];
 
-template<typename T, int NCHANS, size_t A>
+template <typename T, int NCHANS, size_t A>
 bool LanczosResampler<T, NCHANS, A>::sTablesInitialized{false};
 
-} // namespace iplug
-
+} // namespace dsp
