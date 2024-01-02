@@ -11,7 +11,8 @@
 #include "ImpulseResponse.h"
 
 dsp::ImpulseResponse::ImpulseResponse(const char* fileName, const double sampleRate)
-: mWavState(dsp::wav::LoadReturnCode::ERROR_OTHER), mSampleRate(sampleRate)
+: mWavState(dsp::wav::LoadReturnCode::ERROR_OTHER)
+, mSampleRate(sampleRate)
 {
   // Try to load the WAV
   this->mWavState = dsp::wav::Load(fileName, this->mRawAudio, this->mRawAudioSampleRate);

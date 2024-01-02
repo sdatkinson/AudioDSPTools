@@ -7,8 +7,6 @@
 // Test to benchmark model loading and running
 
 
-
-
 #include <chrono>
 #include <iostream>
 #include <stdlib.h>
