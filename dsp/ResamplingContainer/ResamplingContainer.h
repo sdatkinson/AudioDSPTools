@@ -83,20 +83,13 @@ public:
   using LanczosResampler = LanczosResampler<T, NCHANS, A>;
 
   // :param renderingSampleRate: The sample rate required by the code to be encapsulated.
-  ResamplingContainer(double renderingSampleRate, ESRCMode mode = ESRCMode::kLinearInterpolation)
-  : mResamplingMode(mode)
-  , mRenderingSampleRate(renderingSampleRate)
+  ResamplingContainer(double renderingSampleRate)
+  : mRenderingSampleRate(renderingSampleRate)
   {
   }
   
   ResamplingContainer(const ResamplingContainer&) = delete;
   ResamplingContainer& operator=(const ResamplingContainer&) = delete;
-
-  void SetResamplingMode(ESRCMode mode)
-  {
-    mResamplingMode = mode;
-    Reset(mInputSampleRate);
-  }
   
   // :param inputSampleRate: The external sample rate interacting with this object.
   // :param blockSize: The largest block size that will be given to this class to process until Reset()  is called
@@ -130,7 +123,6 @@ public:
       mEncapsulatedOutputPointers.Add(mEncapsulatedOutputData.Get() + (chan * mMaxEncapsulatedBlockSize));
     }
 
-    if (mResamplingMode == ESRCMode::kLancsoz)
     {
       mResampler1 = std::make_unique<LanczosResampler>(mInputSampleRate, mRenderingSampleRate);
       mResampler2 = std::make_unique<LanczosResampler>(mRenderingSampleRate, mInputSampleRate);
@@ -158,13 +150,6 @@ public:
       mResampler2->PushBlock(mEncapsulatedOutputPointers.GetList(), populated);
       // Now we're ready for the first "real" buffer.
     }
-    else
-    {
-      mResampler1 = nullptr;
-      mResampler2 = nullptr;
-      mLatency = 0;
-      ClearBuffers();  // Takes care of that junk
-    }
   }
 
   /** Resample an input block with a per-block function (up sample input -> process with function -> down sample)
@@ -174,26 +159,6 @@ public:
    * @param func The function that processes the audio sample at the higher sampling rate. NOTE: std::function can call malloc if you pass in captures */
   void ProcessBlock(T** inputs, T** outputs, int nFrames, BlockProcessFunc func)
   {
-    switch (mResamplingMode)
-    {
-      case ESRCMode::kLinearInterpolation:
-      {
-        // FIXME check this!
-        const auto nNewFrames = LinearInterpolate(inputs, mEncapsulatedInputPointers.GetList(), nFrames, mRatio1, mMaxEncapsulatedBlockSize);
-        func(mEncapsulatedInputPointers.GetList(), mEncapsulatedOutputPointers.GetList(), nNewFrames);
-        LinearInterpolate(mEncapsulatedOutputPointers.GetList(), outputs, nNewFrames, mRatio2, nFrames);
-        break;
-      }
-      case ESRCMode::kCubicInterpolation:
-      {
-        // FIXME check this!
-        const auto nNewFrames = CubicInterpolate(inputs, mEncapsulatedInputPointers.GetList(), nFrames, mRatio1, mMaxEncapsulatedBlockSize);
-        func(mEncapsulatedInputPointers.GetList(), mEncapsulatedOutputPointers.GetList(), nNewFrames);
-        CubicInterpolate(mEncapsulatedOutputPointers.GetList(), outputs, nNewFrames, mRatio2, nFrames);
-        break;
-      }
-      case ESRCMode::kLancsoz:
-      {
         mResampler1->PushBlock(inputs, nFrames);
         // This is the most samples the encapsualted context might get. Sometimes it'll get fewer.
         const auto maxEncapsulatedLen = MaxEncapsulatedBlockSize(nFrames);
@@ -221,11 +186,6 @@ public:
         // Get ready for the next block:
         mResampler1->RenormalizePhases();
         mResampler2->RenormalizePhases();
-        break;
-      }
-      default:
-        break;
-    }
   }
   
   int GetLatency() const { return mLatency; }
@@ -303,15 +263,12 @@ private:
     memset(mEncapsulatedInputData.Get(), 0.0f, encapsulatedDataSize);
     memset(mEncapsulatedOutputData.Get(), 0.0f, encapsulatedDataSize);
     
-    if (mResamplingMode == ESRCMode::kLancsoz)
-    {
       if (mResampler1 != nullptr) {
         mResampler1->ClearBuffer();
       }
       if (mResampler2 != nullptr) {
         mResampler2->ClearBuffer();
       }
-    }
   }
   
   // How big could the corresponding encapsulated buffer be for a buffer at the external sample rate of a given size?
@@ -349,7 +306,6 @@ private:
   int mLatency = 0;
   // The sample rate required by the DSP that this object encapsulates
   const double mRenderingSampleRate;
-  ESRCMode mResamplingMode;
   // Pair of resamplers for (1) external -> encapsulated, (2) encapsulated -> external
   std::unique_ptr<LanczosResampler> mResampler1, mResampler2;
 };
