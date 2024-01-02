@@ -46,9 +46,9 @@ iPlug 2 includes the following 3rd party libraries (see each license info):
 // #include "IPlugPlatform.h"
 
 // #include "heapbuf.h"
-#include "ptrlist.h"
+#include "Dependencies/WDL/ptrlist.h"
 
-#include "_LanczosResampler.h"
+#include "Dependencies/LanczosResampler.h"
 
 namespace dsp {
 
@@ -76,21 +76,21 @@ namespace dsp {
    but at the expense of higher latency
  */
 template<typename T = double, int NCHANS=2, size_t A=12>
-class RealtimeResampler
+class ResamplingContainer
 {
 public:
   using BlockProcessFunc = std::function<void(T**, T**, int)>;
   using LanczosResampler = LanczosResampler<T, NCHANS, A>;
 
   // :param renderingSampleRate: The sample rate required by the code to be encapsulated.
-  RealtimeResampler(double renderingSampleRate, ESRCMode mode = ESRCMode::kLinearInterpolation)
+  ResamplingContainer(double renderingSampleRate, ESRCMode mode = ESRCMode::kLinearInterpolation)
   : mResamplingMode(mode)
   , mRenderingSampleRate(renderingSampleRate)
   {
   }
   
-  RealtimeResampler(const RealtimeResampler&) = delete;
-  RealtimeResampler& operator=(const RealtimeResampler&) = delete;
+  ResamplingContainer(const ResamplingContainer&) = delete;
+  ResamplingContainer& operator=(const ResamplingContainer&) = delete;
 
   void SetResamplingMode(ESRCMode mode)
   {
