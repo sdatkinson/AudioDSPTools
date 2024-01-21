@@ -132,7 +132,10 @@ private:
 
   // The buffer size. This needs to be at least as large as the largest block of samples
   // that the input side will see.
-  static constexpr size_t kBufferSize = 4096;
+  // WARNING: hard-coded to accommodate 8192 samples, from 44.1 to 192k!
+  // If someone is past this, then maybe they know what they're doing ;)
+  // (size_t)(8192 * 3 * 192000 / 44100)+1 = 106998
+  static constexpr size_t kBufferSize = 131072;  // Round up to pow2. I don't know why, but it doesn't work otherwise.
   // The filter width. 2x because the filter goes from -A to A
   static constexpr size_t kFilterWidth = A * 2;
   // The discretization resolution for the filter table.
