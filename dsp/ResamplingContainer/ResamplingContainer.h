@@ -216,7 +216,6 @@ public:
   int GetLatency() const { return mLatency; }
 
 private:
-    recursive_linear_filter::LowPassBiquad mLowPassFilter; // Declaration of the LowPassBiquad filter
   
   static inline int LinearInterpolate(T** inputs, T** outputs, int inputLen, double ratio, int maxOutputLen)
   {
@@ -338,6 +337,9 @@ private:
   const double mRenderingSampleRate;
   // Pair of resamplers for (1) external -> encapsulated, (2) encapsulated -> external
   std::unique_ptr<LanczosResampler> mResampler1, mResampler2;
+  // lowpass filter to reduce alias
+  recursive_linear_filter::LowPassBiquad mLowPassFilter; // Declaration of the LowPassBiquad filter
+
 };
 
 }; // namespace dsp
