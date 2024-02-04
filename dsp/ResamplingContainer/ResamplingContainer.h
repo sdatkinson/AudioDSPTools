@@ -164,7 +164,8 @@ public:
       // Therefore, we don't *acutally* need to use `func()`--we can assume that it would output silence!
       // func(mEncapsulatedInputPointers.GetList(), mEncapsulatedOutputPointers.GetList(), (int)populated);
       FallbackFunc(mEncapsulatedInputPointers.GetList(), mEncapsulatedOutputPointers.GetList(), (int)populated);
-      mResampler2->PushBlock(mEncapsulatedOutputPointers.GetList(), populated);
+      DSP_SAMPLE** silentProcessed = mLowPassFilter.Process(mEncapsulatedOutputPointers.GetList(), 1, populated);
+      mResampler2->PushBlock(silentProcessed, populated);
       // Now we're ready for the first "real" buffer.
     }
   }
