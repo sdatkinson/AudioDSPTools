@@ -192,12 +192,13 @@ public:
       {
         throw std::runtime_error("Got more encapsulated samples than the encapsulated DSP is prepared to handle!");
       }
-      mLowPassFilter.Process(mEncapsulatedOutputPointers.GetList(), 1, populated1);
 
-
+      
+      
       func(mEncapsulatedInputPointers.GetList(), mEncapsulatedOutputPointers.GetList(), (int)populated1);
+      DSP_SAMPLE** filteredOutputs = mLowPassFilter.Process(mEncapsulatedOutputPointers.GetList(), 1, populated1);
       // And push the results into the second resampler so that it has what the external context requires.
-      mResampler2->PushBlock(mEncapsulatedOutputPointers.GetList(), populated1);
+      mResampler2->PushBlock(filteredOutputs, populated1);
     }
 
     // Pop the required output from the second resampler for the external context.
