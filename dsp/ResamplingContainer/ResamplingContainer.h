@@ -54,6 +54,8 @@ iPlug 2 includes the following 3rd party libraries (see each license info):
 #include "Dependencies/WDL/ptrlist.h"
 
 #include "Dependencies/LanczosResampler.h"
+#include "AudioDSPTools/dsp/RecursiveLinearFilter.h"
+
 
 namespace dsp
 {
@@ -133,6 +135,14 @@ public:
       mResampler1 = std::make_unique<LanczosResampler>(mInputSampleRate, mRenderingSampleRate);
       mResampler2 = std::make_unique<LanczosResampler>(mRenderingSampleRate, mInputSampleRate);
 
+        
+      // Initialize the LowPassBiquad filter with appropriate parameters
+      double cutoffFrequency = std::min(mInputSampleRate, mRenderingSampleRate) / 2.0 * 0.9; // For example
+      double qualityFactor = 0.707; // A common choice for a Butterworth filter
+      double gainDB = 0; // Typically, no gain change for a low-pass filter
+      recursive_linear_filter::BiquadParams params(mRenderingSampleRate, cutoffFrequency, qualityFactor, gainDB);
+      mLowPassFilter.SetParams(params);
+      
       // Zeroes the scratch pointers so that we warm up with silence.
       ClearBuffers();
 
@@ -182,6 +192,9 @@ public:
       {
         throw std::runtime_error("Got more encapsulated samples than the encapsulated DSP is prepared to handle!");
       }
+      mLowPassFilter.Process(mEncapsulatedOutputPointers.GetList(), 1, populated1);
+
+
       func(mEncapsulatedInputPointers.GetList(), mEncapsulatedOutputPointers.GetList(), (int)populated1);
       // And push the results into the second resampler so that it has what the external context requires.
       mResampler2->PushBlock(mEncapsulatedOutputPointers.GetList(), populated1);
@@ -201,6 +214,8 @@ public:
   int GetLatency() const { return mLatency; }
 
 private:
+    recursive_linear_filter::LowPassBiquad mLowPassFilter; // Declaration of the LowPassBiquad filter
+  
   static inline int LinearInterpolate(T** inputs, T** outputs, int inputLen, double ratio, int maxOutputLen)
   {
     // FIXME check through this!
