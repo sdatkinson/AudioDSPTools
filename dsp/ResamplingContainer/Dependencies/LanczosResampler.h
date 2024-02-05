@@ -205,7 +205,7 @@ public:
     return static_cast<size_t>(std::max(res + 1.0, 0.0));
   }
 
-  inline void PushBlock(T** inputs, size_t nFrames)
+  virtual inline void PushBlock(T** inputs, size_t nFrames)
   {
     for (auto s = 0; s < nFrames; s++)
     {
