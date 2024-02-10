@@ -17,17 +17,10 @@
 namespace dsp
 {
 /**
- * Extends the LanczosResampler class by integrating a LowPassBiquad filter to reduce aliasing.
+ * Extends the LanczosResampler class by integrating a LowPassBiquad filter to reduce aliasing in
+ * the case of downsampilng.
  * This subclass applies a low-pass filter to the input audio signal before performing
- * the Lanczos resampling process. The low-pass filtering stage is crucial for removing
- * high-frequency content that could cause aliasing when the signal is downsampled,
- * ensuring a cleaner output signal with minimal distortion.
- *
- * The LowPassBiquad filter's parameters, such as the cutoff frequency, are set during
- * the object's construction, allowing for flexible adaptation to various audio processing
- * scenarios. This makes the LanczosResamplerWithLPF class particularly useful in applications
- * where audio quality and fidelity are paramount, providing high-quality resampling
- * with integrated anti-aliasing filtering.
+ * the Lanczos downsampling process. In case of upsamping, the filter is not used.
  *
  * Template parameters:
  * - T: The data type of the audio samples (e.g., float or double).
