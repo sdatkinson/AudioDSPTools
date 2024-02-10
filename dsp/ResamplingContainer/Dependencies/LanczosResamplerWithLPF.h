@@ -34,10 +34,10 @@ public:
     bool applyLPF = false; // Conditionally apply LPF
 
     // Constructor
-    LanczosResamplerWithLPF(float inputRate, float outputRate)
+    LanczosResamplerWithLPF(float inputRate, float outputRate, float cutoffRatioOfNyquist = 0.9)
     : LanczosResampler<T, NCHANS, A>(inputRate, outputRate) {
         // Compute cutoff frequency based on the output rate, set to just below Nyquist
-        float cutoffFrequency = outputRate / 2.0 * 0.9; // 90% of Nyquist frequency
+        float cutoffFrequency = outputRate / 2.0 * cutoffRatioOfNyquist; // e.g., 90% of Nyquist frequency
 
         // Only initialize and apply LPF if downsampling
         if (outputRate < inputRate) {
