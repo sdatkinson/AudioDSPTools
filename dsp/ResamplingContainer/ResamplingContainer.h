@@ -193,10 +193,12 @@ public:
     {
       std::cerr << "Did not yield enough samples (" << populated2 << ") to provide the required output buffer (expected"
                 << nFrames << ")! Filling with last sample..." << std::endl;
-      for (int c = 0; c < NCHANS; c++) {
+      for (int c = 0; c < NCHANS; c++)
+      {
         const T lastSample = populated2 > 0 ? outputs[c][populated2 - 1] : 0.0;
-          for (int i = populated2; i < nFrames; i++) {
-            outputs[c][i] = lastSample;
+        for (int i = populated2; i < nFrames; i++)
+        {
+          outputs[c][i] = lastSample;
         }
       }
     }
