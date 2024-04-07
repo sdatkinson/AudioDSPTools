@@ -135,7 +135,7 @@ private:
   // WARNING: hard-coded to accommodate 8192 samples, from 44.1 to 192k!
   // If someone is past this, then maybe they know what they're doing ;)
   // (size_t)(8192 * 3 * 192000 / 44100)+1 = 106998
-  static constexpr size_t kBufferSize = 131072;  // Round up to pow2. I don't know why, but it doesn't work otherwise.
+  static constexpr size_t kBufferSize = 131072; // Round up to pow2. I don't know why, but it doesn't work otherwise.
   // The filter width. 2x because the filter goes from -A to A
   static constexpr size_t kFilterWidth = A * 2;
   // The discretization resolution for the filter table.
@@ -149,10 +149,11 @@ public:
    */
   LanczosResampler(float inputRate, float outputRate)
   : mInputSampleRate(inputRate)
-  , mOutputSamplerate(outputRate)
-  , mPhaseOutIncr(mInputSampleRate / mOutputSamplerate)
+  , mOutputSampleRate(outputRate)
   {
+    SetPhases();
     ClearBuffer();
+
 
     auto kernel = [](double x) {
       if (std::fabs(x) < 1e-7)
@@ -200,7 +201,9 @@ public:
      * Use the fact that mPhaseInIncr = mInputSampleRate and find
      * res > (A+1) - (mPhaseIn - mPhaseOut + mPhaseOutIncr * desiredOutputs) * sri
      */
-    auto res = A + 1.0 - (mPhaseIn - mPhaseOut - mPhaseOutIncr * nOutputSamples);
+    double res = A + 1.0
+                 - ((double)(mPhaseInNumerator - mPhaseOutNumerator - mPhaseOutIncrNumerator * (long)nOutputSamples))
+                     / ((double)mPhaseDenominator);
 
     return static_cast<size_t>(std::max(res + 1.0, 0.0));
   }
@@ -216,17 +219,17 @@ public:
       }
 
       mWritePos = (mWritePos + 1) & (kBufferSize - 1);
-      mPhaseIn += mPhaseInIncr;
+      mPhaseInNumerator += mPhaseInIncrNumerator;
     }
   }
 
   size_t PopBlock(T** outputs, size_t max)
   {
     int populated = 0;
-    while (populated < max && (mPhaseIn - mPhaseOut) > A + 1)
+    while (populated < max && (mPhaseInNumerator - mPhaseOutNumerator) > mPhaseDenominator * (A + 1))
     {
-      ReadSamples((mPhaseIn - mPhaseOut), outputs, populated);
-      mPhaseOut += mPhaseOutIncr;
+      ReadSamples(((double)(mPhaseInNumerator - mPhaseOutNumerator)) / ((double)mPhaseDenominator), outputs, populated);
+      mPhaseOutNumerator += mPhaseOutIncrNumerator;
       populated++;
     }
     return populated;
@@ -234,8 +237,8 @@ public:
 
   inline void RenormalizePhases()
   {
-    mPhaseIn -= mPhaseOut;
-    mPhaseOut = 0;
+    mPhaseInNumerator -= mPhaseOutNumerator;
+    mPhaseOutNumerator = 0;
   }
 
   void Reset() { ClearBuffer(); }
@@ -341,6 +344,41 @@ private:
     }
   }
 #endif
+  void SetPhases()
+  {
+    // This is going to assume I can treat the sample rates as longs...
+    // But if they're not, then things will sound just a little wrong and honestly I'm fine with that.
+    // It's your fault for not using something normal like 44.1k, 48k, or their multiples.
+    // (Looking at you, VST3PluginTestHost!)
+    auto AssertLongLikeSampleRate = [](double x) {
+      if ((double)((long)x) != x)
+      {
+        std::cerr << "Expected long-like sample rate; got " << x << " instead! Truncating..." << std::endl;
+      }
+      return (long)x;
+    };
+
+    // Greatest common denominator
+    auto gcd = [](long a, long b) -> long {
+      while (b != 0)
+      {
+        long temp = b;
+        b = a % b;
+        a = temp;
+      }
+      return a;
+    };
+
+    const long inputSampleRate = AssertLongLikeSampleRate(mInputSampleRate);
+    const long outputSampleRate = AssertLongLikeSampleRate(mOutputSampleRate);
+    const long g = gcd(inputSampleRate, outputSampleRate);
+
+    // mPhaseInIncr = 1.0
+    // mPhaseOutIncr = mInputSampleRate / mOutputSampleRate
+    mPhaseInIncrNumerator = outputSampleRate / g;
+    mPhaseDenominator = mPhaseInIncrNumerator; // val / val = 1
+    mPhaseOutIncrNumerator = inputSampleRate / g;
+  };
 
   static T sTable alignas(16)[kTablePoints + 1][kFilterWidth];
   static T sDeltaTable alignas(16)[kTablePoints + 1][kFilterWidth];
@@ -349,11 +387,14 @@ private:
   T mInputBuffer[NCHANS][kBufferSize * 2];
   int mWritePos = 0;
   const float mInputSampleRate;
-  const float mOutputSamplerate;
-  double mPhaseIn = 0.0;
-  double mPhaseOut = 0.0;
-  double mPhaseInIncr = 1.0;
-  double mPhaseOutIncr = 0.0;
+  const float mOutputSampleRate;
+  // Phase is treated as rational numbers to ensure floating point errors don't accumulate and we stay exactly on.
+  // (Issue 15)
+  long mPhaseInNumerator = 0;
+  long mPhaseOutNumerator = 0;
+  long mPhaseInIncrNumerator = 1;
+  long mPhaseOutIncrNumerator = 1;
+  long mPhaseDenominator = 1;
 };
 
 template <typename T, int NCHANS, size_t A>
