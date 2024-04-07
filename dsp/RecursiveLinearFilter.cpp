@@ -162,3 +162,20 @@ void recursive_linear_filter::HighShelf::SetParams(const recursive_linear_filter
 
   this->_AssignCoefficients(a0, a1, a2, b0, b1, b2);
 }
+
+void recursive_linear_filter::LowPassBiquad::SetParams(const recursive_linear_filter::BiquadParams& params)
+{
+    const double omega0 = params.GetOmega0();
+    const double cosw0 = std::cos(omega0);
+    const double alpha = params.GetAlpha(omega0);
+
+    const double b0 = (1.0 - cosw0) / 2.0;
+    const double b1 = 1.0 - cosw0;
+    const double b2 = (1.0 - cosw0) / 2.0;
+    const double a0 = 1.0 + alpha;
+    const double a1 = -2.0 * cosw0;
+    const double a2 = 1.0 - alpha;
+
+    // Normalize the coefficients by a0 and assign them
+    this->_AssignCoefficients(a0, a1, a2, b0, b1, b2);
+}
