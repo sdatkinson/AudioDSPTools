@@ -92,6 +92,27 @@ void recursive_linear_filter::Base::_PrepareBuffers(const size_t numChannels, co
   }
 }
 
+recursive_linear_filter::BiquadParams recursive_linear_filter::Biquad::GetParams() const
+{
+  if (mParams) {
+    BiquadParams out(mParams->GetSampleRate(), mParams->GetFrequency(), mParams->GetQuality(), mParams->GetGainDB());
+    return out;
+  }
+  else {
+    // HACK
+    BiquadParams out(1.0, 1.0, 0.707, 0.0);
+    return out;
+  }
+}
+
+void recursive_linear_filter::Biquad::Reset(const double sampleRate, const int maxBlockSize) {
+  if (mParams) {
+    BiquadParams params(sampleRate, mParams->GetFrequency(), mParams->GetQuality(), mParams->GetGainDB());
+    SetParams(params);
+  }
+  // TODO use max block size to allocate smartly!
+}
+
 void recursive_linear_filter::Biquad::_AssignCoefficients(const double a0, const double a1, const double a2,
                                                           const double b0, const double b1, const double b2)
 {

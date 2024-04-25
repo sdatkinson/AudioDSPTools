@@ -23,6 +23,7 @@ class Base : public dsp::DSP
 public:
   Base(const size_t inputDegree, const size_t outputDegree);
   DSP_SAMPLE** Process(DSP_SAMPLE** inputs, const size_t numChannels, const size_t numFrames) override;
+  virtual void Reset(const double sampleRate, const int maxBlockSize) {};
 
 protected:
   // Methods
@@ -54,9 +55,13 @@ protected:
 class LevelParams : public dsp::Params
 {
 public:
+  // Gain is NOT IN DB
   LevelParams(const double gain)
   : Params()
   , mGain(gain){};
+  LevelParams(const LevelParams &params)
+  : Params()
+  , mGain(params.GetGain()){};
   double GetGain() const { return this->mGain; };
 
 private:
@@ -69,10 +74,13 @@ class Level : public Base
 public:
   Level()
   : Base(1, 0){};
+  
+  LevelParams GetParams() const {return LevelParams(GetGain());};
   // Invalid usage: require a pointer to recursive_linear_filter::Params so
   // that SetCoefficients() is defined.
   void SetParams(const LevelParams& params) { this->mInputCoefficients[0] = params.GetGain(); };
-  ;
+private:
+  double GetGain() const {return mInputCoefficients[0];};
 };
 
 // The same 3 params (frequency, quality, gain) describe a bunch of filters.
@@ -86,6 +94,18 @@ public:
   , mGainDB(gainDB)
   , mQuality(quality)
   , mSampleRate(sampleRate){};
+  BiquadParams(const BiquadParams &params)
+  : dsp::Params()
+  , mFrequency(params.GetFrequency())
+  , mGainDB(params.GetGainDB())
+  , mQuality(params.GetQuality())
+  , mSampleRate(params.GetSampleRate()){};
+  
+  // Physical parameters:
+  double GetFrequency() const {return mFrequency;};
+  double GetGainDB() const {return mGainDB;};
+  double GetQuality() const {return mQuality;};
+  double GetSampleRate() const {return mSampleRate;};
 
   // Parameters defined in
   // https://webaudio.github.io/Audio-EQ-Cookbook/audio-eq-cookbook.html
@@ -106,11 +126,14 @@ class Biquad : public Base
 public:
   Biquad()
   : Base(3, 3){};
+  BiquadParams GetParams() const;
+  virtual void Reset(const double sampleRate, const int maxBlockSize) override;
   virtual void SetParams(const BiquadParams& params) = 0;
 
 protected:
   void _AssignCoefficients(const double a0, const double a1, const double a2, const double b0, const double b1,
                            const double b2);
+  std::shared_ptr<BiquadParams> mParams=nullptr;
 };
 
 class LowShelf : public Biquad

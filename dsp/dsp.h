@@ -38,6 +38,7 @@ public:
   // use Params.
   // But, use this name :)
   // virtual void SetParams(Params* params) = 0;
+  virtual void Reset(const double sampleRate, const int maxBlockSize) {};
 
 protected:
   // Methods
