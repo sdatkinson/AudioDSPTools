@@ -128,7 +128,7 @@ public:
   : Base(3, 3){};
   BiquadParams GetParams() const;
   virtual void Reset(const double sampleRate, const int maxBlockSize) override;
-  virtual void SetParams(const BiquadParams& params) = 0;
+  virtual void SetParams(const BiquadParams& params);
 
 protected:
   void _AssignCoefficients(const double a0, const double a1, const double a2, const double b0, const double b1,

@@ -113,6 +113,11 @@ void recursive_linear_filter::Biquad::Reset(const double sampleRate, const int m
   // TODO use max block size to allocate smartly!
 }
 
+void recursive_linear_filter::Biquad::SetParams(const BiquadParams &params)
+{
+  mParams = std::make_shared<BiquadParams>(params);
+}
+
 void recursive_linear_filter::Biquad::_AssignCoefficients(const double a0, const double a1, const double a2,
                                                           const double b0, const double b1, const double b2)
 {
@@ -127,6 +132,7 @@ void recursive_linear_filter::Biquad::_AssignCoefficients(const double a0, const
 
 void recursive_linear_filter::LowShelf::SetParams(const recursive_linear_filter::BiquadParams& params)
 {
+  Biquad::SetParams(params);
   const double a = params.GetA();
   const double omega_0 = params.GetOmega0();
   const double alpha = params.GetAlpha(omega_0);
@@ -148,6 +154,7 @@ void recursive_linear_filter::LowShelf::SetParams(const recursive_linear_filter:
 
 void recursive_linear_filter::Peaking::SetParams(const recursive_linear_filter::BiquadParams& params)
 {
+  Biquad::SetParams(params);
   const double a = params.GetA();
   const double omega_0 = params.GetOmega0();
   const double alpha = params.GetAlpha(omega_0);
@@ -165,6 +172,7 @@ void recursive_linear_filter::Peaking::SetParams(const recursive_linear_filter::
 
 void recursive_linear_filter::HighShelf::SetParams(const recursive_linear_filter::BiquadParams& params)
 {
+  Biquad::SetParams(params);
   const double a = params.GetA();
   const double omega_0 = params.GetOmega0();
   const double alpha = params.GetAlpha(omega_0);
