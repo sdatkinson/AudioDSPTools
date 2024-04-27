@@ -23,7 +23,6 @@ class Base : public dsp::DSP
 public:
   Base(const size_t inputDegree, const size_t outputDegree);
   DSP_SAMPLE** Process(DSP_SAMPLE** inputs, const size_t numChannels, const size_t numFrames) override;
-  virtual void Reset(const double sampleRate, const int maxBlockSize) {};
 
 protected:
   // Methods
