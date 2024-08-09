@@ -16,6 +16,10 @@
 
 #include "wav.h"
 
+#ifdef __linux__
+#include <cstdint>
+#endif
+
 bool idIsNotJunk(char* id)
 {
   return strncmp(id, "RIFF", 4) == 0 || strncmp(id, "WAVE", 4) == 0 || strncmp(id, "fmt ", 4) == 0

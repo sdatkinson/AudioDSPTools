@@ -23,7 +23,7 @@ public:
   struct IRData;
   ImpulseResponse(const char* fileName, const double sampleRate);
   ImpulseResponse(const IRData& irData, const double sampleRate);
-  double** Process(double** inputs, const size_t numChannels, const size_t numFrames) override;
+  DSP_SAMPLE** Process(DSP_SAMPLE** inputs, const size_t numChannels, const size_t numFrames) override;
   IRData GetData();
   double GetSampleRate() const { return mSampleRate; };
   // TODO states for the IR class
