@@ -124,7 +124,7 @@ private:
 
   // Hold the vectors of gain reduction for the block, in dB.
   // These can be given to the Gain object.
-  std::vector<std::vector<double>> mGainReductionDB;
+  std::vector<std::vector<DSP_SAMPLE>> mGainReductionDB;
   std::vector<double> mLastGainReductionDB;
 
   double mSampleRate;
