@@ -60,7 +60,7 @@ public:
   , mRatio(ratio)
   , mOpenTime(openTime)
   , mHoldTime(holdTime)
-  , mCloseTime(closeTime){};
+  , mCloseTime(closeTime) {};
 
   double GetTime() const { return this->mTime; };
   double GetThreshold() const { return this->mThreshold; };

@@ -56,7 +56,7 @@ class LevelParams : public dsp::Params
 public:
   LevelParams(const double gain)
   : Params()
-  , mGain(gain){};
+  , mGain(gain) {};
   double GetGain() const { return this->mGain; };
 
 private:
@@ -68,7 +68,7 @@ class Level : public Base
 {
 public:
   Level()
-  : Base(1, 0){};
+  : Base(1, 0) {};
   // Invalid usage: require a pointer to recursive_linear_filter::Params so
   // that SetCoefficients() is defined.
   void SetParams(const LevelParams& params) { this->mInputCoefficients[0] = params.GetGain(); };
@@ -85,7 +85,7 @@ public:
   , mFrequency(frequency)
   , mGainDB(gainDB)
   , mQuality(quality)
-  , mSampleRate(sampleRate){};
+  , mSampleRate(sampleRate) {};
 
   // Parameters defined in
   // https://webaudio.github.io/Audio-EQ-Cookbook/audio-eq-cookbook.html
@@ -105,7 +105,7 @@ class Biquad : public Base
 {
 public:
   Biquad()
-  : Base(3, 3){};
+  : Base(3, 3) {};
   virtual void SetParams(const BiquadParams& params) = 0;
 
 protected:
@@ -139,7 +139,7 @@ public:
   HighPassParams(const double sampleRate, const double frequency)
   : dsp::Params()
   , mFrequency(frequency)
-  , mSampleRate(sampleRate){};
+  , mSampleRate(sampleRate) {};
 
   double GetAlpha() const
   {
@@ -156,7 +156,7 @@ class HighPass : public Base
 {
 public:
   HighPass()
-  : Base(2, 2){};
+  : Base(2, 2) {};
   void SetParams(const HighPassParams& params)
   {
     const double alpha = params.GetAlpha();
@@ -174,7 +174,7 @@ public:
   LowPassParams(const double sampleRate, const double frequency)
   : dsp::Params()
   , mFrequency(frequency)
-  , mSampleRate(sampleRate){};
+  , mSampleRate(sampleRate) {};
 
   double GetAlpha() const
   {
@@ -191,7 +191,7 @@ class LowPass : public Base
 {
 public:
   LowPass()
-  : Base(1, 2){};
+  : Base(1, 2) {};
   void SetParams(const LowPassParams& params)
   {
     const double alpha = params.GetAlpha();
