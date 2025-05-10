@@ -5,7 +5,6 @@
 //  Created by Steven Atkinson on 12/31/22.
 //
 
-#include <bitset> // For debugging
 #include <cstring> // strncmp
 #include <cmath> // pow
 #include <fstream>
@@ -219,14 +218,6 @@ dsp::wav::LoadReturnCode ReadFmtChunk(std::ifstream& wavFile, WaveFileData& wfd,
     wfd.fmtChunk.extensible.channelMask = read_u32();
     uint8_t guid[16];
     wavFile.read((char*)guid, 16);
-    std::bitset<8> bits(guid[0]);
-    std::cout << "GUID ";
-    for (auto g : guid)
-    {
-      bits = g;
-      std::cout << bits << " ";
-    }
-    std::cout << std::endl;
     wfd.fmtChunk.extensible.subFormat = guid[1] << 8 | guid[0];
     bytesRead += cbSize + 2; // Don't forget the 2 for the cbSize itself!
   }
