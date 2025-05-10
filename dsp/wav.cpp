@@ -5,6 +5,7 @@
 //  Created by Steven Atkinson on 12/31/22.
 //
 
+#include <bitset> // For debugging
 #include <cstring> // strncmp
 #include <cmath> // pow
 #include <fstream>
@@ -64,11 +65,11 @@ struct WaveFileData
   } dataChunk;
 };
 
-const int AUDIO_FORMAT_PCM = 1;
-const int AUDIO_FORMAT_IEEE = 3;
-const int AUDIO_FORMAT_ALAW = 6;
-const int AUDIO_FORMAT_MULAW = 7;
-const int AUDIO_FORMAT_EXTENSIBLE = 65534;
+const unsigned short AUDIO_FORMAT_PCM = 1;
+const unsigned short AUDIO_FORMAT_IEEE = 3;
+const unsigned short AUDIO_FORMAT_ALAW = 6;
+const unsigned short AUDIO_FORMAT_MULAW = 7;
+const unsigned short AUDIO_FORMAT_EXTENSIBLE = 65534;
 
 bool idIsNotJunk(char* id)
 {
@@ -120,9 +121,7 @@ std::string dsp::wav::GetMsgForLoadReturnCode(LoadReturnCode retCode)
     case (LoadReturnCode::ERROR_INVALID_FILE): message << "WAV file contents are invalid."; break;
     case (LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_ALAW): message << "Unsupported file format \"A-law\""; break;
     case (LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_MULAW): message << "Unsupported file format \"mu-law\""; break;
-    case (LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_EXTENSIBLE):
-      message << "Unsupported file format \"extensible\"";
-      break;
+    case (LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_OTHER): message << "Unsupported file format."; break;
     case (LoadReturnCode::ERROR_NOT_MONO): message << "File is not mono."; break;
     case (LoadReturnCode::ERROR_UNSUPPORTED_BITS_PER_SAMPLE): message << "Unsupported bits per sample"; break;
     case (dsp::wav::LoadReturnCode::ERROR_OTHER): message << "???"; break;
@@ -174,7 +173,7 @@ dsp::wav::LoadReturnCode ReadFmtChunk(std::ifstream& wavFile, WaveFileData& wfd,
   }
 
   wfd.fmtChunk.audioFormat = ReadUnsignedShort(wavFile);
-  std::unordered_set<short> supportedFormats{AUDIO_FORMAT_PCM, AUDIO_FORMAT_IEEE}; // AUDIO_FORMAT_EXTENSIBLE
+  std::unordered_set<unsigned short> supportedFormats{AUDIO_FORMAT_PCM, AUDIO_FORMAT_IEEE, AUDIO_FORMAT_EXTENSIBLE};
   if (supportedFormats.find(wfd.fmtChunk.audioFormat) == supportedFormats.end())
   {
     std::cerr << "Error: Unsupported WAV format detected. ";
@@ -186,9 +185,6 @@ dsp::wav::LoadReturnCode ReadFmtChunk(std::ifstream& wavFile, WaveFileData& wfd,
       case AUDIO_FORMAT_MULAW:
         std::cerr << "(Got: mu-law)" << std::endl;
         return dsp::wav::LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_MULAW;
-      case AUDIO_FORMAT_EXTENSIBLE: // TODO remove
-        std::cerr << "(Got: Extensible)" << std::endl;
-        return dsp::wav::LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_EXTENSIBLE;
       default:
         std::cerr << "(Got unknown format " << wfd.fmtChunk.audioFormat << ")" << std::endl;
         return dsp::wav::LoadReturnCode::ERROR_INVALID_FILE;
@@ -208,9 +204,11 @@ dsp::wav::LoadReturnCode ReadFmtChunk(std::ifstream& wavFile, WaveFileData& wfd,
   wfd.fmtChunk.byteRate = ReadInt(wavFile);
   wfd.fmtChunk.blockAlign = ReadShort(wavFile);
   wfd.fmtChunk.bitsPerSample = ReadShort(wavFile);
+  int bytesRead = 16;
 
   if (wfd.fmtChunk.audioFormat == AUDIO_FORMAT_EXTENSIBLE)
   {
+    unsigned short cbSize = ReadUnsignedShort(wavFile);
     // Do we need to assert or modify the data loading below if this doesn't match bitsPerSample?
     wfd.fmtChunk.extensible.validBitsPerSample = ReadUnsignedShort(wavFile);
     auto read_u32 = [&]() -> uint32_t {
@@ -221,26 +219,29 @@ dsp::wav::LoadReturnCode ReadFmtChunk(std::ifstream& wavFile, WaveFileData& wfd,
     wfd.fmtChunk.extensible.channelMask = read_u32();
     uint8_t guid[16];
     wavFile.read((char*)guid, 16);
+    std::bitset<8> bits(guid[0]);
+    std::cout << "GUID ";
+    for (auto g : guid)
+    {
+      bits = g;
+      std::cout << bits << " ";
+    }
+    std::cout << std::endl;
     wfd.fmtChunk.extensible.subFormat = guid[1] << 8 | guid[0];
-  }
-
-  // The default is for there to be 16 bytes in the fmt chunk, but sometimes
-  // it's different.
-  else if (wfd.fmtChunk.size > 16)
-  {
-    const int extraBytes = wfd.fmtChunk.size - 16;
-    const int skipChars = extraBytes / 4 * 4; // truncate to dword size
-    wavFile.ignore(skipChars);
-    const int remainder = extraBytes % 4;
-    // Is this right? Don't we already have the byteRate?
-    // This must be here because of some weird WAVE file I've seen, but I don't know which.
-    wavFile.read(reinterpret_cast<char*>(&wfd.fmtChunk.byteRate), remainder);
+    bytesRead += cbSize + 2; // Don't forget the 2 for the cbSize itself!
   }
 
   // Skip any extra bytes in the fmt chunk
-  if (wfd.fmtChunk.size > 16)
+  // This should probably be a remainder of a dword so that we're mod-4
+  if (wfd.fmtChunk.size > bytesRead)
   {
-    wavFile.ignore(wfd.fmtChunk.size - 16);
+    const int extraBytes = wfd.fmtChunk.size - bytesRead;
+    if (extraBytes >= 4)
+    {
+      std::cerr << "More than 4 extra bytes in fmt chunk." << std::endl;
+      return dsp::wav::LoadReturnCode::ERROR_INVALID_FILE;
+    }
+    wavFile.ignore(extraBytes);
   }
 
   // Store SR for final return
@@ -273,6 +274,7 @@ dsp::wav::LoadReturnCode ReadFactChunk(std::ifstream& wavFile, WaveFileData& wfd
   }
   wfd.factChunk.numSamples = ReadInt(wavFile);
 
+  wfd.factChunk.valid = true;
   return dsp::wav::LoadReturnCode::SUCCESS;
 }
 
@@ -333,6 +335,11 @@ dsp::wav::LoadReturnCode ReadDataChunk(std::ifstream& wavFile, WaveFileData& wfd
       std::cerr << "Error: Unsupported bits per sample for PCM files: " << wfd.fmtChunk.bitsPerSample << std::endl;
       return dsp::wav::LoadReturnCode::ERROR_UNSUPPORTED_BITS_PER_SAMPLE;
     }
+  }
+  else
+  {
+    std::cerr << "Error: Unsupported audio format: " << audioFormat << std::endl;
+    return dsp::wav::LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_OTHER;
   }
   wfd.dataChunk.valid = true;
   return dsp::wav::LoadReturnCode::SUCCESS;
