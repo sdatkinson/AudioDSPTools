@@ -35,6 +35,24 @@ dsp::ImpulseResponse::ImpulseResponse(const IRData& irData, const double sampleR
   this->_SetWeights();
 }
 
+dsp::ImpulseResponse::ImpulseResponse(const unsigned char* data, size_t dataSize, double sampleRate)
+: mWavState(dsp::wav::LoadReturnCode::SUCCESS)
+, mSampleRate(sampleRate)
+{
+  // Load the raw data from memory
+  this->mWavState = dsp::wav::Load(data, dataSize, this->mRawAudio, this->mRawAudioSampleRate);
+
+  if (this->mWavState != dsp::wav::LoadReturnCode::SUCCESS)
+  {
+    std::stringstream ss;
+    ss << "Failed to load IR from embedded data array." << std::endl;
+  }
+  else
+  {
+    this->_SetWeights();
+  }
+}
+
 double** dsp::ImpulseResponse::Process(double** inputs, const size_t numChannels, const size_t numFrames)
 {
   this->_PrepareBuffers(numChannels, numFrames);

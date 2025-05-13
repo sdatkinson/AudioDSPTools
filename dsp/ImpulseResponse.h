@@ -23,6 +23,7 @@ public:
   struct IRData;
   ImpulseResponse(const char* fileName, const double sampleRate);
   ImpulseResponse(const IRData& irData, const double sampleRate);
+  ImpulseResponse(const unsigned char* data, size_t dataSize, double sampleRate);
   double** Process(double** inputs, const size_t numChannels, const size_t numFrames) override;
   IRData GetData();
   double GetSampleRate() const { return mSampleRate; };
