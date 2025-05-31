@@ -54,10 +54,12 @@ iPlug 2 includes the following 3rd party libraries (see each license info):
 #include "Dependencies/WDL/ptrlist.h"
 
 #include "Dependencies/LanczosResampler.h"
+#include "AudioDSPTools/dsp/RecursiveLinearFilter.h"
+
+#include "Dependencies/LanczosResamplerWithLPF.h"
 
 namespace dsp
 {
-
 /** A multi-channel real-time resampling container that can be used to resample
  * audio processing to a specified sample rate for the situation where you have
  * some arbitary DSP code that requires a specific sample rate, then back to
@@ -86,7 +88,7 @@ class ResamplingContainer
 {
 public:
   using BlockProcessFunc = std::function<void(T**, T**, int)>;
-  using LanczosResampler = LanczosResampler<T, NCHANS, A>;
+  using LanczosResamplerWithLPF = LanczosResamplerWithLPF<T, NCHANS, A>;
 
   // :param renderingSampleRate: The sample rate required by the code to be encapsulated.
   ResamplingContainer(double renderingSampleRate)
@@ -130,9 +132,9 @@ public:
     }
 
     {
-      mResampler1 = std::make_unique<LanczosResampler>(mInputSampleRate, mRenderingSampleRate);
-      mResampler2 = std::make_unique<LanczosResampler>(mRenderingSampleRate, mInputSampleRate);
-
+      mResampler1 = std::make_unique<LanczosResamplerWithLPF>(mInputSampleRate, mRenderingSampleRate);
+      mResampler2 = std::make_unique<LanczosResamplerWithLPF>(mRenderingSampleRate, mInputSampleRate);
+      
       // Zeroes the scratch pointers so that we warm up with silence.
       ClearBuffers();
 
@@ -182,6 +184,7 @@ public:
       {
         throw std::runtime_error("Got more encapsulated samples than the encapsulated DSP is prepared to handle!");
       }
+
       func(mEncapsulatedInputPointers.GetList(), mEncapsulatedOutputPointers.GetList(), (int)populated1);
       // And push the results into the second resampler so that it has what the external context requires.
       mResampler2->PushBlock(mEncapsulatedOutputPointers.GetList(), populated1);
@@ -210,6 +213,7 @@ public:
   int GetLatency() const { return mLatency; }
 
 private:
+  
   static inline int LinearInterpolate(T** inputs, T** outputs, int inputLen, double ratio, int maxOutputLen)
   {
     // FIXME check through this!
@@ -329,7 +333,10 @@ private:
   // The sample rate required by the DSP that this object encapsulates
   const double mRenderingSampleRate;
   // Pair of resamplers for (1) external -> encapsulated, (2) encapsulated -> external
-  std::unique_ptr<LanczosResampler> mResampler1, mResampler2;
+  std::unique_ptr<LanczosResamplerWithLPF> mResampler1, mResampler2;
+
 };
+
+
 
 }; // namespace dsp
