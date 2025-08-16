@@ -307,7 +307,7 @@ dsp::wav::LoadReturnCode ReadDataChunk(std::ifstream& wavFile, WaveFileData& wfd
   if (audioFormat == AUDIO_FORMAT_IEEE)
   {
     if (wfd.fmtChunk.bitsPerSample == 32)
-      dsp::wav::_LoadSamples32(wavFile, wfd.dataChunk.size, audio);
+      dsp::wav::_LoadSamples32FloatingPoint(wavFile, wfd.dataChunk.size, audio);
     else
     {
       std::cerr << "Error: Unsupported bits per sample for IEEE files: " << wfd.fmtChunk.bitsPerSample << std::endl;
@@ -321,7 +321,7 @@ dsp::wav::LoadReturnCode ReadDataChunk(std::ifstream& wavFile, WaveFileData& wfd
     else if (wfd.fmtChunk.bitsPerSample == 24)
       dsp::wav::_LoadSamples24(wavFile, wfd.dataChunk.size, audio);
     else if (wfd.fmtChunk.bitsPerSample == 32)
-      dsp::wav::_LoadSamples32(wavFile, wfd.dataChunk.size, audio);
+      dsp::wav::_LoadSamples32FixedPoint(wavFile, wfd.dataChunk.size, audio);
     else
     {
       std::cerr << "Error: Unsupported bits per sample for PCM files: " << wfd.fmtChunk.bitsPerSample << std::endl;
@@ -456,10 +456,25 @@ int dsp::wav::_ReadSigned24BitInt(std::ifstream& stream)
   return value;
 }
 
-void dsp::wav::_LoadSamples32(std::ifstream& wavFile, const int chunkSize, std::vector<float>& samples)
+void dsp::wav::_LoadSamples32FloatingPoint(std::ifstream& wavFile, const int chunkSize, std::vector<float>& samples)
 {
   // NOTE: 32-bit is float.
   samples.resize(chunkSize / 4); // 32 bits (4 bytes) per sample
   // Read the samples from the file into the array
   wavFile.read(reinterpret_cast<char*>(samples.data()), chunkSize);
+}
+
+void dsp::wav::_LoadSamples32FixedPoint(std::ifstream& wavFile, const int chunkSize, std::vector<float>& samples)
+{
+  // Allocate an array to hold the samples
+  std::vector<int> tmp(chunkSize / 4); // 32 bits (4 bytes) per sample
+
+  // Read the samples from the file into the array
+  wavFile.read(reinterpret_cast<char*>(tmp.data()), chunkSize);
+
+  // Copy into the return array
+  const float scale = 1.0 / ((double)(1 << 31)); // 2^31 for 32-bit fixed point
+  samples.resize(tmp.size());
+  for (auto i = 0; i < samples.size(); i++)
+    samples[i] = scale * ((float)tmp[i]);
 }
