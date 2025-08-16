@@ -5,6 +5,7 @@
 //  Created by Steven Atkinson on 12/31/22.
 //
 
+#include <cstdint>
 #include <cstring> // strncmp
 #include <cmath> // pow
 #include <fstream>
@@ -43,9 +44,9 @@ struct WaveFileData
     short bitsPerSample;
     struct Extensible
     {
-      uint16_t validBitsPerSample;
-      uint16_t channelMask;
-      uint32_t subFormat; // PCM, IEEE
+      std::uint16_t validBitsPerSample;
+      std::uint16_t channelMask;
+      std::uint32_t subFormat; // PCM, IEEE
     } extensible;
   } fmtChunk;
 
@@ -210,13 +211,13 @@ dsp::wav::LoadReturnCode ReadFmtChunk(std::ifstream& wavFile, WaveFileData& wfd,
     unsigned short cbSize = ReadUnsignedShort(wavFile);
     // Do we need to assert or modify the data loading below if this doesn't match bitsPerSample?
     wfd.fmtChunk.extensible.validBitsPerSample = ReadUnsignedShort(wavFile);
-    auto read_u32 = [&]() -> uint32_t {
-      uint8_t b[4];
+    auto read_u32 = [&]() -> std::uint32_t {
+      std::uint8_t b[4];
       wavFile.read((char*)b, 4);
       return b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24);
     };
     wfd.fmtChunk.extensible.channelMask = read_u32();
-    uint8_t guid[16];
+    std::uint8_t guid[16];
     wavFile.read((char*)guid, 16);
     wfd.fmtChunk.extensible.subFormat = guid[1] << 8 | guid[0];
     bytesRead += cbSize + 2; // Don't forget the 2 for the cbSize itself!
