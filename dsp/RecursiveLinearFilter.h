@@ -202,4 +202,11 @@ public:
   }
 };
 
+class LowPassBiquad : public Biquad
+{
+public:
+    LowPassBiquad() : Biquad() {}
+    void SetParams(const BiquadParams& params) override;
+};
+
 }; // namespace recursive_linear_filter
