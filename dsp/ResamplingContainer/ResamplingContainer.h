@@ -86,7 +86,9 @@ class ResamplingContainer
 {
 public:
   using BlockProcessFunc = std::function<void(T**, T**, int)>;
-  using LanczosResampler = LanczosResampler<T, NCHANS, A>;
+  // Qualify the name on the right-hand side so that this alias doesn't change the meaning of the unqualified name
+  // `LanczosResampler` within this class' scope ([basic.scope.class]); GCC rejects the unqualified version.
+  using LanczosResampler = dsp::LanczosResampler<T, NCHANS, A>;
 
   // :param renderingSampleRate: The sample rate required by the code to be encapsulated.
   ResamplingContainer(double renderingSampleRate)
