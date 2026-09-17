@@ -123,7 +123,7 @@ std::string dsp::wav::GetMsgForLoadReturnCode(LoadReturnCode retCode)
     case (LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_ALAW): message << "Unsupported file format \"A-law\""; break;
     case (LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_MULAW): message << "Unsupported file format \"mu-law\""; break;
     case (LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_OTHER): message << "Unsupported file format."; break;
-    case (LoadReturnCode::ERROR_NOT_MONO): message << "File is not mono."; break;
+    case (LoadReturnCode::ERROR_UNSUPPORTED_CHANNEL_COUNT): message << "Only mono and stereo WAV files are supported."; break;
     case (LoadReturnCode::ERROR_UNSUPPORTED_BITS_PER_SAMPLE): message << "Unsupported bits per sample"; break;
     case (dsp::wav::LoadReturnCode::ERROR_OTHER): message << "???"; break;
     default: message << "???"; break;
@@ -193,13 +193,8 @@ dsp::wav::LoadReturnCode ReadFmtChunk(std::ifstream& wavFile, WaveFileData& wfd,
   }
 
   wfd.fmtChunk.numChannels = ReadShort(wavFile);
-  // HACK
-  // Note for future: for multi-channel files, samples are laid out with channel in the inner loop.
-  if (wfd.fmtChunk.numChannels != 1)
-  {
-    std::cerr << "Require mono (using for IR loading)" << std::endl;
-    return dsp::wav::LoadReturnCode::ERROR_NOT_MONO;
-  }
+  if (wfd.fmtChunk.numChannels < 1 || wfd.fmtChunk.numChannels > 2)
+    return dsp::wav::LoadReturnCode::ERROR_UNSUPPORTED_CHANNEL_COUNT;
 
   wfd.fmtChunk.sampleRate = ReadInt(wavFile);
   wfd.fmtChunk.byteRate = ReadInt(wavFile);
@@ -301,8 +296,13 @@ dsp::wav::LoadReturnCode ReadDataChunk(std::ifstream& wavFile, WaveFileData& wfd
     return dsp::wav::LoadReturnCode::ERROR_INVALID_FILE;
   }
 
-  // Size of the data chunk, in bits.
+  // Size of the data chunk, in bytes.
   wfd.dataChunk.size = ReadInt(wavFile);
+
+  const auto bytesPerFrame = wfd.fmtChunk.numChannels * (wfd.fmtChunk.bitsPerSample / 8);
+  if (bytesPerFrame <= 0 || wfd.dataChunk.size <= 0
+      || wfd.dataChunk.size % bytesPerFrame != 0 || wfd.fmtChunk.sampleRate <= 0)
+    return dsp::wav::LoadReturnCode::ERROR_INVALID_FILE;
 
   const int audioFormat = GetAudioFormat(wfd);
   if (audioFormat == AUDIO_FORMAT_IEEE)
@@ -334,11 +334,14 @@ dsp::wav::LoadReturnCode ReadDataChunk(std::ifstream& wavFile, WaveFileData& wfd
     std::cerr << "Error: Unsupported audio format: " << audioFormat << std::endl;
     return dsp::wav::LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_OTHER;
   }
+  if (!wavFile.good())
+    return dsp::wav::LoadReturnCode::ERROR_INVALID_FILE;
   wfd.dataChunk.valid = true;
   return dsp::wav::LoadReturnCode::SUCCESS;
 }
 
-dsp::wav::LoadReturnCode dsp::wav::Load(const char* fileName, std::vector<float>& audio, double& sampleRate)
+dsp::wav::LoadReturnCode dsp::wav::Load(const char* fileName, std::vector<float>& audio,
+                                      double& sampleRate, size_t& numChannels)
 {
   // FYI: https://www.mmsp.ece.mcgill.ca/Documents/AudioFormats/WAVE/WAVE.html
   // Open the WAV file for reading
@@ -399,6 +402,7 @@ dsp::wav::LoadReturnCode dsp::wav::Load(const char* fileName, std::vector<float>
       return returnCode;
     }
   }
+  numChannels = wfd.fmtChunk.valid ? static_cast<size_t>(wfd.fmtChunk.numChannels) : 0;
   wavFile.close();
   if (!wfd.dataChunk.valid)
   { // This implicitly asserts that the fmt chunk was read and gave us the sample rate

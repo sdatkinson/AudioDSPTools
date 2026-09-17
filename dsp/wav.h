@@ -27,18 +27,21 @@ enum class LoadReturnCode
   ERROR_UNSUPPORTED_FORMAT_MULAW,
   ERROR_UNSUPPORTED_FORMAT_OTHER,
   ERROR_UNSUPPORTED_BITS_PER_SAMPLE,
-  ERROR_NOT_MONO,
-  ERROR_OTHER
+  ERROR_OTHER,
+  ERROR_UNSUPPORTED_CHANNEL_COUNT
 };
 
 // Get a string describing the error
 std::string GetMsgForLoadReturnCode(LoadReturnCode rc);
 
-// Load a WAV file into a provided array of doubles,
-// And note the sample rate.
+// Load mono or stereo WAV samples. On success, audio contains interleaved
+// samples (L0, R0, L1, R1, ... for stereo), sampleRate is the source rate in Hz,
+// and numChannels is 1 or 2. Mono samples remain sequential.
 //
-// Returns: as per return cases above
-LoadReturnCode Load(const char* fileName, std::vector<float>& audio, double& sampleRate);
+// This replaces the three-argument, mono-only API: callers must supply a size_t
+// channel-count output and handle interleaved stereo data. ERROR_NOT_MONO has
+// been removed; unsupported channel counts return ERROR_UNSUPPORTED_CHANNEL_COUNT.
+LoadReturnCode Load(const char* fileName, std::vector<float>& audio, double& sampleRate, size_t& numChannels);
 
 // Load samples, 16-bit
 void _LoadSamples16(std::ifstream& wavFile, const int chunkSize, std::vector<float>& samples);
