@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstring> // strncmp
 #include <cmath> // pow
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -344,7 +345,12 @@ dsp::wav::LoadReturnCode dsp::wav::Load(const char* fileName, std::vector<float>
 {
   // FYI: https://www.mmsp.ece.mcgill.ca/Documents/AudioFormats/WAVE/WAVE.html
   // Open the WAV file for reading
-  std::ifstream wavFile(fileName, std::ios::binary);
+#ifdef __cpp_char8_t
+  const auto filePath = std::filesystem::path(reinterpret_cast<const char8_t*>(fileName));
+#else
+  const auto filePath = std::filesystem::u8path(fileName);
+#endif
+  std::ifstream wavFile(filePath, std::ios::binary);
 
   // Check if the file was opened successfully
   if (!wavFile.is_open())
