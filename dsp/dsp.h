@@ -100,9 +100,9 @@ protected:
   // Shall always be in the range [mHistoryRequired, mHistory.size()).
   size_t mHistoryIndex;
 
-private:
   // Make sure that the history array is long enough.
   void _EnsureHistorySize(const size_t bufferSize);
+private:
   // Copy the end of the history back to the fron and reset mHistoryIndex
   void _RewindHistory();
 };
