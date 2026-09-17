@@ -40,12 +40,14 @@ int main()
 
   std::vector<float> audio;
   double sampleRate = 0.0;
+  size_t numChannels = 0;
   const auto utf8Path = ToUTF8(wavPath);
-  const auto result = dsp::wav::Load(utf8Path.c_str(), audio, sampleRate);
+  const auto result = dsp::wav::Load(utf8Path.c_str(), audio, sampleRate, numChannels);
 
   std::filesystem::remove_all(testDirectory);
 
-  if (result != dsp::wav::LoadReturnCode::SUCCESS || audio.size() != 1 || sampleRate != 48000.0)
+  if (result != dsp::wav::LoadReturnCode::SUCCESS || audio.size() != 1 || sampleRate != 48000.0
+      || numChannels != 1)
   {
     std::cerr << "Failed to load WAV from UTF-8 path" << std::endl;
     return 1;
