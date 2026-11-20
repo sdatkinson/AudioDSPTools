@@ -47,6 +47,8 @@ iPlug 2 includes the following 3rd party libraries (see each license info):
 #include <iostream>
 #include <functional>
 #include <cmath>
+#include <memory>
+#include <stdexcept>
 
 // #include "IPlugPlatform.h"
 
@@ -63,32 +65,28 @@ namespace dsp
  * some arbitary DSP code that requires a specific sample rate, then back to
  * the original external sample rate, encapsulating the arbitrary DSP code.
 
- * Three modes are supported:
- * - Linear interpolation: simple linear interpolation between samples
- * - Cubic interpolation: cubic interpolation between samples
- * - Lanczos: Lanczos resampling uses an approximation of the sinc function to
- *   interpolate between samples. This is the highest quality resampling mode.
- *
  * The Lanczos resampler has a configurable filter size (A) that affects the
  * latency of the resampler. It can also optionally use SIMD instructions to
  * when T==float.
  *
  *
  * @tparam T the sampletype
- * @tparam NCHANS the number of channels
- * @tparam A The Lanczos filter size for the LanczosResampler resampler mode
+ * @tparam N_IN_CHANS the number of input channels
+ * @tparam A The Lanczos filter size
    A higher value makes the filter closer to an
    ideal stop-band that rejects high-frequency content (anti-aliasing),
    but at the expense of higher latency
+ * @tparam N_OUT_CHANS the number of output channels, defaulting to N_IN_CHANS
  */
-template <typename T = double, int NCHANS = 2, size_t A = 12>
+template <typename T = double, int N_IN_CHANS = 2, size_t A = 12, int N_OUT_CHANS = N_IN_CHANS>
 class ResamplingContainer
 {
+  static_assert(N_IN_CHANS > 0 && N_OUT_CHANS > 0, "ResamplingContainer requires positive channel counts");
+
 public:
   using BlockProcessFunc = std::function<void(T**, T**, int)>;
-  // Qualify the name on the right-hand side so that this alias doesn't change the meaning of the unqualified name
-  // `LanczosResampler` within this class' scope ([basic.scope.class]); GCC rejects the unqualified version.
-  using LanczosResampler = dsp::LanczosResampler<T, NCHANS, A>;
+  // Qualify the name on the right-hand side so GCC accepts the public alias.
+  using LanczosResampler = dsp::LanczosResampler<T, N_IN_CHANS, A>;
 
   // :param renderingSampleRate: The sample rate required by the code to be encapsulated.
   ResamplingContainer(double renderingSampleRate)
@@ -113,57 +111,43 @@ public:
     mInputSampleRate = inputSampleRate;
     mRatio1 = mInputSampleRate / mRenderingSampleRate;
     mRatio2 = mRenderingSampleRate / mInputSampleRate;
-    // The buffers for the encapsulated code need to be long enough to hold the correesponding number of samples
     mMaxBlockSize = blockSize;
-    mMaxEncapsulatedBlockSize = MaxEncapsulatedBlockSize(blockSize);
 
-    mScratchExternalInputData.Resize(mMaxBlockSize * NCHANS); // This may contain junk right now.
-    mEncapsulatedInputData.Resize(mMaxEncapsulatedBlockSize * NCHANS); // This may contain junk right now.
-    mEncapsulatedOutputData.Resize(mMaxEncapsulatedBlockSize * NCHANS); // This may contain junk right now.
+    mResampler1 = std::make_unique<LanczosResampler>(mInputSampleRate, mRenderingSampleRate);
+    mResampler2 = std::make_unique<OutputLanczosResampler>(mRenderingSampleRate, mInputSampleRate);
+
+    // Priming can take more samples than the host's maximum block size.
+    const auto midSamples = mResampler2->GetNumSamplesRequiredFor(1);
+    mLatency = static_cast<int>(mResampler1->GetNumSamplesRequiredFor(midSamples));
+    const int encapsulatedBufferSize = std::max(MaxEncapsulatedBlockSize(blockSize), static_cast<int>(midSamples));
+
+    mScratchExternalInputData.Resize(mLatency * N_IN_CHANS);
+    mEncapsulatedInputData.Resize(encapsulatedBufferSize * N_IN_CHANS);
+    mEncapsulatedOutputData.Resize(encapsulatedBufferSize * N_OUT_CHANS);
     mScratchExternalInputPointers.Empty();
     mEncapsulatedInputPointers.Empty();
     mEncapsulatedOutputPointers.Empty();
 
-    for (auto chan = 0; chan < NCHANS; chan++)
+    for (int chan = 0; chan < N_IN_CHANS; ++chan)
     {
-      mScratchExternalInputPointers.Add(mScratchExternalInputData.Get() + (chan * mMaxBlockSize));
-      mEncapsulatedInputPointers.Add(mEncapsulatedInputData.Get() + (chan * mMaxEncapsulatedBlockSize));
-      mEncapsulatedOutputPointers.Add(mEncapsulatedOutputData.Get() + (chan * mMaxEncapsulatedBlockSize));
+      mScratchExternalInputPointers.Add(mScratchExternalInputData.Get() + chan * mLatency);
+      mEncapsulatedInputPointers.Add(mEncapsulatedInputData.Get() + chan * encapsulatedBufferSize);
     }
+    for (int chan = 0; chan < N_OUT_CHANS; ++chan)
+      mEncapsulatedOutputPointers.Add(mEncapsulatedOutputData.Get() + chan * encapsulatedBufferSize);
 
-    {
-      mResampler1 = std::make_unique<LanczosResampler>(mInputSampleRate, mRenderingSampleRate);
-      mResampler2 = std::make_unique<LanczosResampler>(mRenderingSampleRate, mInputSampleRate);
-
-      // Zeroes the scratch pointers so that we warm up with silence.
-      ClearBuffers();
-
-      // Warm up the resampling container with enough silence that the first real buffer can yield the required number
-      // of output samples.
-      const auto midSamples = mResampler2->GetNumSamplesRequiredFor(1);
-      mLatency = int(mResampler1->GetNumSamplesRequiredFor(midSamples));
-      // 1. Push some silence through the first resampler.
-      //
-      mResampler1->PushBlock(mScratchExternalInputPointers.GetList(), mLatency);
-      const size_t populated = mResampler1->PopBlock(mEncapsulatedInputPointers.GetList(), midSamples);
-      if (populated < midSamples)
-      {
-        throw std::runtime_error("Didn't get enough samples required for pre-population!");
-      }
-      // 2. "process" the warm-up in the encapsulated DSP.
-      // Since this is an audio effect, we can assume that (1) it's causal and (2) that it's silent until
-      // a non-silent input is given to it.
-      // Therefore, we don't *acutally* need to use `func()`--we can assume that it would output silence!
-      // func(mEncapsulatedInputPointers.GetList(), mEncapsulatedOutputPointers.GetList(), (int)populated);
-      FallbackFunc(mEncapsulatedInputPointers.GetList(), mEncapsulatedOutputPointers.GetList(), (int)populated);
-      mResampler2->PushBlock(mEncapsulatedOutputPointers.GetList(), populated);
-      // Now we're ready for the first "real" buffer.
-    }
+    // Prime both resamplers with silence so the first block has enough output samples.
+    ClearBuffers();
+    mResampler1->PushBlock(mScratchExternalInputPointers.GetList(), mLatency);
+    const size_t populated = mResampler1->PopBlock(mEncapsulatedInputPointers.GetList(), midSamples);
+    if (populated < midSamples)
+      throw std::runtime_error("Didn't get enough samples required for pre-population!");
+    mResampler2->PushBlock(mEncapsulatedOutputPointers.GetList(), populated);
   }
 
   /** Resample an input block with a per-block function (up sample input -> process with function -> down sample)
-   * @param inputs Two-dimensional array containing the non-interleaved input buffers of audio samples for all channels
-   * @param outputs Two-dimensional array for audio output (non-interleaved).
+   * @param inputs Non-interleaved input buffers for N_IN_CHANS channels.
+   * @param outputs Non-interleaved output buffers for N_OUT_CHANS channels.
    * @param nFrames The block size for this block: number of samples per channel.
    * @param func The function that processes the audio sample at the higher sampling rate. NOTE: std::function can call
    * malloc if you pass in captures */
@@ -195,7 +179,7 @@ public:
     {
       std::cerr << "Did not yield enough samples (" << populated2 << ") to provide the required output buffer (expected"
                 << nFrames << ")! Filling with last sample..." << std::endl;
-      for (int c = 0; c < NCHANS; c++)
+      for (int c = 0; c < N_OUT_CHANS; c++)
       {
         const T lastSample = populated2 > 0 ? outputs[c][populated2 - 1] : 0.0;
         for (int i = populated2; i < nFrames; i++)
@@ -212,6 +196,9 @@ public:
   int GetLatency() const { return mLatency; }
 
 private:
+  using OutputLanczosResampler = dsp::LanczosResampler<T, N_OUT_CHANS, A>;
+
+  template <int Channels>
   static inline int LinearInterpolate(T** inputs, T** outputs, int inputLen, double ratio, int maxOutputLen)
   {
     // FIXME check through this!
@@ -227,7 +214,7 @@ private:
       {
         const auto y = readPos - readPostionTrunc;
 
-        for (auto chan = 0; chan < NCHANS; chan++)
+        for (auto chan = 0; chan < Channels; chan++)
         {
           const auto x0 = inputs[chan][readPosInt];
           const auto x1 = ((readPosInt + 1) < inputLen) ? inputs[chan][readPosInt + 1] : inputs[chan][readPosInt - 1];
@@ -239,6 +226,7 @@ private:
     return outputLen;
   }
 
+  template <int Channels>
   static inline int CubicInterpolate(T** inputs, T** outputs, int inputLen, double ratio, int maxOutputLen)
   {
     // FIXME check through this!
@@ -254,7 +242,7 @@ private:
       {
         const auto y = readPos - readPostionTrunc;
 
-        for (auto chan = 0; chan < NCHANS; chan++)
+        for (auto chan = 0; chan < Channels; chan++)
         {
           const auto xm1 = ((readPosInt - 1) > 0) ? inputs[chan][readPosInt - 1] : 0.0f;
           const auto x0 = ((readPosInt) < inputLen) ? inputs[chan][readPosInt] : inputs[chan][readPosInt - 1];
@@ -277,10 +265,9 @@ private:
 
   void ClearBuffers()
   {
-    memset(mScratchExternalInputData.Get(), 0.0f, DataSize(mMaxBlockSize));
-    const auto encapsulatedDataSize = DataSize(mMaxEncapsulatedBlockSize);
-    memset(mEncapsulatedInputData.Get(), 0.0f, encapsulatedDataSize);
-    memset(mEncapsulatedOutputData.Get(), 0.0f, encapsulatedDataSize);
+    memset(mScratchExternalInputData.Get(), 0, mScratchExternalInputData.GetSize() * sizeof(T));
+    memset(mEncapsulatedInputData.Get(), 0, mEncapsulatedInputData.GetSize() * sizeof(T));
+    memset(mEncapsulatedOutputData.Get(), 0, mEncapsulatedOutputData.GetSize() * sizeof(T));
 
     if (mResampler1 != nullptr)
     {
@@ -298,17 +285,6 @@ private:
     return static_cast<int>(std::ceil(static_cast<double>(externalBlockSize) / mRatio1));
   }
 
-  // Size of the multi-channel data for a given block size
-  size_t DataSize(const int blockSize) const { return blockSize * NCHANS * sizeof(T); };
-
-  void FallbackFunc(T** inputs, T** outputs, int n)
-  {
-    for (int i = 0; i < NCHANS; i++)
-    {
-      memcpy(inputs[i], outputs[i], n * sizeof(T));
-    }
-  }
-
   // Buffers for scratch input data for Reset() to use
   WDL_TypedBuf<T> mScratchExternalInputData;
   WDL_PtrList<T> mScratchExternalInputPointers;
@@ -323,15 +299,14 @@ private:
   double mInputSampleRate = 0.0;
   // The size of the largest block the external context may provide. (It might provide something smaller.)
   int mMaxBlockSize = 0;
-  // The size of the largest possible encapsulated block
-  int mMaxEncapsulatedBlockSize = 0;
   // How much latency this object adds due to both of its resamplers. This does _not_ include the latency due to the
   // encapsulated `func()`.
   int mLatency = 0;
   // The sample rate required by the DSP that this object encapsulates
   const double mRenderingSampleRate;
   // Pair of resamplers for (1) external -> encapsulated, (2) encapsulated -> external
-  std::unique_ptr<LanczosResampler> mResampler1, mResampler2;
+  std::unique_ptr<LanczosResampler> mResampler1;
+  std::unique_ptr<OutputLanczosResampler> mResampler2;
 };
 
 }; // namespace dsp
