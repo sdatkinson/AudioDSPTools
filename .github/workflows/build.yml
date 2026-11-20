@@ -15,10 +15,11 @@ jobs:
       with:
         submodules: recursive
     
-    - name: Build Tools
+    - name: Build and Test
       working-directory: ${{github.workspace}}/build
       env:
         CXX: clang++
       run: |
         cmake .. -DCMAKE_BUILD_TYPE=$BUILD_TYPE
         cmake --build . --config $BUILD_TYPE -j4
+        ctest --output-on-failure --no-tests=error
