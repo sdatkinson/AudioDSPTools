@@ -12,10 +12,12 @@ include_directories(tools ${NAM_DEPS_PATH}/nlohmann)
 add_executable(loadmodel loadmodel.cpp ${AUDIO_DSP_TOOLS_SOURCES})
 add_executable(benchmodel benchmodel.cpp ${AUDIO_DSP_TOOLS_SOURCES})
 add_executable(test_wav test_wav.cpp ${AUDIO_DSP_TOOLS_SOURCES})
+add_executable(test_resampling_container test_resampling_container.cpp)
 
 add_test(NAME wav_unicode_path COMMAND test_wav)
+add_test(NAME resampling_container_channel_counts COMMAND test_resampling_container)
 
-source_group(NAM ${CMAKE_CURRENT_SOURCE_DIR} FILES ${AUDIO_DSP_TOOLS_SOURCES})
+source_group(NAM FILES ${AUDIO_DSP_TOOLS_SOURCES})
 
 target_compile_features(${TOOLS} PUBLIC cxx_std_17)
 
